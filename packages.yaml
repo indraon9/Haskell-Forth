@@ -1,0 +1,165 @@
+---------------------
+Convert to LL Grammar
+
+Q
+
+S -> S E
+   | x
+E -> y F
+   | z
+F -> a E
+   | a F
+   | x
+
+A
+
+S -> xS'
+S' -> ES'
+     |
+
+E -> y F
+    |z
+
+F -> a F'
+    |x
+
+F' -> E
+    | F
+
+--------------
+Monotype Proof
+
+0. G |- f x * g y : Int (BinOp)
+
+1. G |- f x : Int (App)
+2. G |- f : Bool -> Int (Var)
+2. G |- x : Bool (Var)
+
+1. G |- g y : Int (App)
+2. G |- g : Int -> Int (Var)
+2. G |- y : Int (Var)
+
+G = {x:Bool,y:Int, f : Bool -> Int, g : Int -> Int}
+
+-------------
+LL to Haskell
+
+S -> EyS
+   | zE
+
+data S = S1 E Char S
+       | S2 Char E
+  deriving (Show,Eq)
+
+parseS :: [Char] -> (S, [Char])
+
+parseS input@(x:xs)
+    | x == 'z' = let (e, rest1) = parseE xs
+                 in (S2 x e, rest1)
+    | otherwise = let (e, ('y':rest1)) = parseE input
+                      (s, rest2) = parseS rest1
+                  in (S1 e 'y' s, rest2)
+
+-----
+S -> xSy
+    |zE
+
+data S = S1 Char S Char
+       | S2 Char E
+  deriving (Show,Eq)
+
+parseS :: [Char] -> (S, [Char])
+parseS (x:xs)
+ |x == 'x' = let (e1, ('y':rest1)) = parseS xs
+             in (S1 'x' e1 'y', rest1)
+ |x == 'z' = let (e2, rest2) = parseE xs
+             in (S2 'z' e2, rest2)
+ |otherwise = error "invalid input"
+
+-----
+
+S -> ESy
+    |wE
+
+data S = S1 E S Char
+       | S2 Char E
+  deriving (Show,Eq)
+
+
+parseS :: [Char] -> (S,[Char])
+parseS input@(x:xs)
+ |x == 'w' = let (e1, r1) = parseE xs
+             in(S2 'w' e1, r1)
+ |otherwise = let (e1, r1) = parseE input
+                  (e2, ('y':r2)) = parseS r1
+              in(S1 e1 e2 'y', r2)
+
+
+-----------------
+Ambiguous Grammar
+
+S -> xS
+    |xSyS
+    |a
+
+xxayxa
+
+(Sx(Sx(Sa)y(Sx(Sa))))
+(Sx(Sx(Sa))y(Sx(Sa)))
+
+Right Linear Grammar 
+
+(ab)*(xy)+a
+
+S ->  abS
+    | X
+
+X -> xyX
+    |xyY
+
+Y -> a
+
+
+------------
+LR Item Sets
+
+S -> aS
+   | bEc
+E -> Fc
+F -> xF
+   | c
+
+I0. S -> . a S      { a: s1 }
+       | . b E c    { b: s2 }
+
+I1. S -> a.S        { S: g3 }
+    S -> . a S      { a: s1 }
+       | . b E c    { b: s2 }
+       
+I2. S -> b . E c    { E: g4 }
+    E -> . F c      { F: g5 }
+    F -> . x F      { x: s6 }
+       | . a        { a: s7 }
+
+I3. S -> a S .      { $: r0 }       
+
+I4. S -> b E . c    { c: s8 }
+
+I5. E -> F . c      { c: s9 }
+
+I6. F -> x . F      { F: g10 }
+    F -> . x F      { x: s6  }
+       | . a        { a: s7  }
+
+I7. F -> a .        { c: r4  }
+
+I8. S -> b E c .    { $: r1  }
+
+I9. E -> F c .      { c: r2  }
+
+I10. F -> x F .     { c: r3  }
+
+I9. E -> F c .      { c: r2  }
+
+I10. F -> x F .     { c: r3  }
+
